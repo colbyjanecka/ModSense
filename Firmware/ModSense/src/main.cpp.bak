@@ -1,0 +1,102 @@
+#include <Arduino.h>
+#include <Adafruit_MCP4728.h>
+#include <Wire.h>
+
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 25
+#endif
+
+Adafruit_MCP4728 mcp;
+
+// Functions
+int getDistance();
+void sendToDAC(int value);
+
+// Constants
+const int irPin = 26;
+const int trigPin = 27; 
+const int echoPin = 28;
+const int dacSDAPin = 4;
+const int dacSLCPin = 5;
+const MCP4728_channel_t cvA = MCP4728_CHANNEL_A;
+const MCP4728_channel_t cvB = MCP4728_CHANNEL_B;
+const MCP4728_channel_t cvC = MCP4728_CHANNEL_C;
+const MCP4728_channel_t cvD = MCP4728_CHANNEL_D;
+
+// Variables
+float duration, distance;  
+bool isObjectDetected = false;
+
+void sendToDAC(MCP4728_channel_t channel, int value) {
+  Serial.println("DAC OUT: CH " + String(channel) + " Value " + String(value));
+  mcp.setChannelValue(channel, value);
+}
+
+int getDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration*.0343)/2;
+  return distance;
+}
+
+bool getIR() {
+  isObjectDetected = digitalRead(irPin);
+  return isObjectDetected;
+}
+
+void statusOK() {
+  digitalWrite(LED_BUILTIN, HIGH);
+}
+
+void statusError() {
+  while (true) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(100);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(100);
+  }
+}
+
+void setup() {
+
+  // Setup Pins + Serial
+  pinMode(trigPin, OUTPUT);  
+	pinMode(echoPin, INPUT);  
+  pinMode(irPin, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+	Serial.begin(9600);  
+  Serial.println("Synthia ModSense Test!");
+
+  // Try to initialize!
+  if (!mcp.begin()) {
+    Serial.println("Failed to find MCP4728 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+
+  sendToDAC(cvA, 4095); // set CV A to full output (12V)
+  sendToDAC(cvB, 2048); // set CV B to half output (6V)
+  sendToDAC(cvC, 1024); // set CV C to quarter output (3V)
+  sendToDAC(cvD, 0); // set CV D to off (0V)
+
+  digitalWrite(LED_BUILTIN, HIGH);
+
+}
+
+void loop() {
+
+  digitalWrite(LED_BUILTIN, HIGH);
+  getDistance();
+  getIR();
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  Serial.print("IR: ");
+  Serial.println(isObjectDetected);
+  delay(200);
+
+}
